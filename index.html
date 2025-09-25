@@ -1,17 +1,15 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
   <meta charset="UTF-8">
-  <title>Viewer eBook - Pagination</title>
+  <title>Viewer eBook Ramah HP & Laptop</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <style>
     body {
       margin: 0;
       background: #f0f0f0;
       font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
     }
 
     #pdf-container {
@@ -22,6 +20,7 @@
     }
 
     canvas {
+      margin-bottom: 20px;
       border: 1px solid #ccc;
       background-color: white;
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
@@ -29,97 +28,99 @@
       height: auto;
     }
 
-    #controls {
-      margin: 10px;
+    .page-placeholder {
+      margin-bottom: 20px;
+      border: 1px dashed #aaa;
+      background: #fff;
+      width: 90%;
+      max-width: 800px;
+      min-height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #666;
+      font-size: 14px;
     }
 
-    button {
-      padding: 8px 16px;
-      margin: 0 5px;
-      border: none;
-      background: #007bff;
-      color: white;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-
-    button:disabled {
-      background: #aaa;
-      cursor: not-allowed;
+    @media print {
+      body {
+        display: none !important;
+      }
     }
   </style>
 </head>
 
 <body oncontextmenu="return false">
-  <div id="controls">
-    <button id="prev">Sebelumnya</button>
-    <span id="page-info"></span>
-    <button id="next">Berikutnya</button>
-  </div>
-  <div id="pdf-container">
-    <canvas id="pdf-canvas"></canvas>
-  </div>
+  <div id="pdf-container"></div>
 
   <script>
-    const url = "MODERASI BAGI PETUGAS HAJI.pdf";
+    const url = 'MODERASI BAGI PETUGAS HAJI.pdf'; // ganti sesuai nama file PDF
+
     pdfjsLib.GlobalWorkerOptions.workerSrc =
-      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    const container = document.getElementById('pdf-container');
 
     let pdfDoc = null;
-    let currentPage = 1;
-    const canvas = document.getElementById("pdf-canvas");
-    const context = canvas.getContext("2d");
-    const pageInfo = document.getElementById("page-info");
 
-    function renderPage(num) {
-      pdfDoc.getPage(num).then(page => {
+    // Render 1 halaman
+    function renderPage(pageNum, placeholder) {
+      pdfDoc.getPage(pageNum).then(page => {
         const desiredWidth = Math.min(window.innerWidth * 0.9, 800);
         const unscaledViewport = page.getViewport({ scale: 1 });
         const scale = desiredWidth / unscaledViewport.width;
-        const viewport = page.getViewport({ scale: scale * window.devicePixelRatio });
+        const viewport = page.getViewport({ scale: scale });
 
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
-        canvas.style.width = `${viewport.width / window.devicePixelRatio}px`;
-        canvas.style.height = `${viewport.height / window.devicePixelRatio}px`;
+        canvas.style.width = viewport.width + "px";
+        canvas.style.height = viewport.height + "px";
 
-        page.render({ canvasContext: context, viewport: viewport });
+        placeholder.replaceWith(canvas);
 
-        pageInfo.textContent = `Halaman ${num} dari ${pdfDoc.numPages}`;
-        document.getElementById("prev").disabled = num === 1;
-        document.getElementById("next").disabled = num === pdfDoc.numPages;
+        page.render({
+          canvasContext: context,
+          viewport: viewport
+        });
       });
+    }
+
+    // Pakai IntersectionObserver -> render hanya saat halaman hampir kelihatan
+    function setupObserver(pageNum, placeholder) {
+      const observer = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          renderPage(pageNum, placeholder);
+          observer.disconnect();
+        }
+      }, { rootMargin: "200px" }); // render saat 200px sebelum kelihatan
+      observer.observe(placeholder);
     }
 
     pdfjsLib.getDocument(url).promise.then(pdf => {
       pdfDoc = pdf;
-      renderPage(currentPage);
-    });
 
-    document.getElementById("prev").addEventListener("click", () => {
-      if (currentPage > 1) {
-        currentPage--;
-        renderPage(currentPage);
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'page-placeholder';
+        placeholder.textContent = `Halaman ${i} sedang dimuat...`;
+        container.appendChild(placeholder);
+        setupObserver(i, placeholder);
       }
+    }).catch(error => {
+      console.error('Gagal memuat PDF:', error);
+      container.innerHTML = '<p style="color:red">Gagal memuat PDF 😢</p>';
     });
 
-    document.getElementById("next").addEventListener("click", () => {
-      if (currentPage < pdfDoc.numPages) {
-        currentPage++;
-        renderPage(currentPage);
-      }
-    });
-
-    // blokir ctrl+s, ctrl+u, ctrl+p, F12
-    document.addEventListener("keydown", function (e) {
-      if (
-        (e.ctrlKey && ["s", "p", "u"].includes(e.key.toLowerCase())) ||
-        e.key === "F12"
-      ) {
+    // Cegah save/print
+    document.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey && ['s', 'p', 'u'].includes(e.key.toLowerCase())) || e.key === 'F12') {
         e.preventDefault();
-        alert("Aksi ini tidak diizinkan.");
+        alert('Aksi ini tidak diizinkan.');
       }
     });
   </script>
 </body>
+
 </html>
